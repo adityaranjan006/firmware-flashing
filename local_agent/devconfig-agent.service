@@ -1,0 +1,29 @@
+[Unit]
+Description=DevConfig Local Agent
+Documentation=https://your-internal-docs
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=devconfig
+Group=dialout
+WorkingDirectory=/opt/devconfig/agent
+
+ExecStart=/opt/devconfig/venv/bin/python main.py
+
+# Restart automatically if it crashes
+Restart=on-failure
+RestartSec=5
+
+# Logs go to journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=devconfig-agent
+
+# Give it time to load IDF on startup
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target
