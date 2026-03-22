@@ -1,4 +1,4 @@
-#!/Users/aditya/working/devconfig/local_agent/venv/bin/python3.12
+#!/home/dreamspan/dreamspan/firmware-flashing/local_agent/venv/bin/python3.12
 
 # Copyright (c) 2015 Andrew Fernandes <andrew@fernandes.org>
 # All rights reserved.

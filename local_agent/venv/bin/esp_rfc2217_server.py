@@ -1,4 +1,4 @@
-#!/Users/aditya/working/devconfig/local_agent/venv/bin/python3.12
+#!/home/dreamspan/dreamspan/firmware-flashing/local_agent/venv/bin/python3.12
 #
 # SPDX-FileCopyrightText: 2014-2024 Fredrik Ahlberg, Angus Gratton,
 # Espressif Systems (Shanghai) CO LTD, other contributors as noted.

@@ -1,4 +1,5 @@
 import asyncio
+import glob as glob_module
 import json
 import logging
 from pathlib import Path
@@ -133,6 +134,17 @@ async def handle_message(ws, raw: str):
         await broadcast_terminal(f'\x1b[33m$ Actuating {sensor_id}...\x1b[0m')
         await serial_handler.send_command(f'TEST:{sensor_id}')
 
+    # ── Scan single sensor address via UART ───────────────────────────────────
+    elif t == 'scan_sensor':
+        sensor_name = msg['sensor_name']
+        async def _scan():
+            try:
+                address = await serial_handler.read_sensor_address(sensor_name)
+                await send_event(ws, 'scan_sensor_result', sensor_name=sensor_name, address=address)
+            except Exception as e:
+                await send_event(ws, 'scan_sensor_result', sensor_name=sensor_name, address=None, error=str(e))
+        asyncio.create_task(_scan())
+
     else:
         log.warning(f'Unknown message type: {t}')
 
@@ -175,12 +187,30 @@ async def run_sensor_tests(ws):
     await broadcast_terminal('\x1b[32m✓ Automated tests complete\x1b[0m')
 
 
+# ── USB port watcher ──────────────────────────────────────────────────────────
+_last_port: str | None = None
+
+async def port_watcher():
+    global _last_port
+    while True:
+        ports = glob_module.glob('/dev/ttyUSB*') + glob_module.glob('/dev/ttyACM*')
+        port = ports[0] if ports else None
+        if port != _last_port:
+            _last_port = port
+            msg = json.dumps({'type': 'port_status', 'connected': port is not None, 'port': port})
+            await asyncio.gather(*[ws.send(msg) for ws in connected_clients], return_exceptions=True)
+            log.info(f'Port status changed: {port}')
+        await asyncio.sleep(2)
+
+
 # ── WebSocket connection handler ───────────────────────────────────────────────
 async def handler(ws):
     connected_clients.add(ws)
     log.info(f'Client connected. Total: {len(connected_clients)}')
     try:
         await ws.send(json.dumps({'type': 'terminal', 'data': '\x1b[32m● Local agent connected\x1b[0m'}))
+        # Send current port state immediately on connect
+        await ws.send(json.dumps({'type': 'port_status', 'connected': _last_port is not None, 'port': _last_port}))
         async for message in ws:
             await handle_message(ws, message)
     except websockets.exceptions.ConnectionClosed:
@@ -214,6 +244,7 @@ async def main():
     await startup()
     async with websockets.serve(handler, HOST, PORT):
         log.info('Agent ready — waiting for connections...')
+        asyncio.create_task(port_watcher())
         await asyncio.Future()  # run forever
 
 

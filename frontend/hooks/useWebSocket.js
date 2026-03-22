@@ -1,14 +1,14 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useCallback } from 'react'
 import { useStore } from '../store'
 
 const AGENT_WS_URL = 'ws://localhost:8765'
 
 let wsInstance = null
 let reconnectTimer = null
+const listeners = {}  // shared across all hook instances
 
 export function useWebSocket() {
   const { setAgentConnected, addTerminalLine } = useStore()
-  const listenersRef = useRef({})
 
   const connect = useCallback(() => {
     if (wsInstance?.readyState === WebSocket.OPEN) return
@@ -34,16 +34,13 @@ export function useWebSocket() {
     wsInstance.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data)
-        // Route to specific listener
-        if (msg.type && listenersRef.current[msg.type]) {
-          listenersRef.current[msg.type](msg)
+        if (msg.type && listeners[msg.type]) {
+          listeners[msg.type](msg)
         }
-        // Terminal output always goes to terminal
         if (msg.type === 'terminal') {
           addTerminalLine(msg.data)
         }
       } catch {
-        // Raw string → terminal
         addTerminalLine(event.data)
       }
     }
@@ -61,8 +58,8 @@ export function useWebSocket() {
   }, [])
 
   const on = useCallback((type, handler) => {
-    listenersRef.current[type] = handler
-    return () => { delete listenersRef.current[type] }
+    listeners[type] = handler
+    return () => { delete listeners[type] }
   }, [])
 
   return { send, on }

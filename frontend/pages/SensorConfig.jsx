@@ -1,6 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useStore } from '../store'
-import { useSerial } from '../hooks/useSerial'
 import { useWebSocket } from '../hooks/useWebSocket'
 
 const SENSORS = ['RL', 'RR', 'PL', 'PR', 'HS']
@@ -15,46 +14,42 @@ const SENSOR_LABELS = {
 
 export default function SensorConfig() {
   const { sensorAddresses, setSensorAddress, setStep, addTerminalLine } = useStore()
-  const { connect, write, readLine, disconnect } = useSerial()
-  const { send } = useWebSocket()
+  const { send, on } = useWebSocket()
   const [activeSensor, setActiveSensor] = useState(null)
   const [testing, setTesting] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [serialConnected, setSerialConnected] = useState(false)
+  const [detectedPort, setDetectedPort] = useState(null)
 
-  const connectSerial = async () => {
-    try {
-      await connect(115200)
-      setSerialConnected(true)
-    } catch {}
-  }
+  useEffect(() => {
+    const cleanup = on('port_status', (msg) => {
+      setDetectedPort(msg.connected ? msg.port : null)
+    })
+    return cleanup
+  }, [on])
 
   const testSensor = async (sensorName) => {
-    if (!serialConnected) {
-      addTerminalLine('\x1b[31m● Serial port not connected\x1b[0m')
+    if (!detectedPort) {
+      addTerminalLine('\x1b[31m● No ESP device detected\x1b[0m')
       return
     }
     setActiveSensor(sensorName)
     setTesting(true)
-    try {
-      addTerminalLine(`\x1b[33m$ Scanning for sensor ${sensorName}...\x1b[0m`)
-      // Send scan command to ESP
-      await write(`SCAN_SENSOR:${sensorName}\n`)
-      // Read address response
-      const response = await readLine()
-      addTerminalLine(`\x1b[32m● ${sensorName}: ${response}\x1b[0m`)
-      if (response && response.startsWith('ADDR:')) {
-        const address = response.replace('ADDR:', '').trim()
-        setSensorAddress(sensorName, address)
+    addTerminalLine(`\x1b[33m$ Scanning for sensor ${sensorName}...\x1b[0m`)
+
+    const cleanup = on('scan_sensor_result', (msg) => {
+      if (msg.sensor_name !== sensorName) return
+      cleanup()
+      if (msg.address) {
+        setSensorAddress(sensorName, msg.address)
+        addTerminalLine(`\x1b[32m● ${sensorName}: ${msg.address}\x1b[0m`)
       } else {
-        addTerminalLine(`\x1b[31m● No sensor detected on ${sensorName}\x1b[0m`)
+        addTerminalLine(`\x1b[31m● No sensor detected on ${sensorName}: ${msg.error || 'no response'}\x1b[0m`)
       }
-    } catch (err) {
-      addTerminalLine(`\x1b[31m● Error: ${err.message}\x1b[0m`)
-    } finally {
       setTesting(false)
       setActiveSensor(null)
-    }
+    })
+
+    send('scan_sensor', { sensor_name: sensorName })
   }
 
   const allDone = SENSORS.every(s => sensorAddresses[s])
@@ -80,21 +75,22 @@ export default function SensorConfig() {
         <p className="text-sm text-surface-3 mt-1 font-body">Connect each sensor one at a time and press Test to read its address.</p>
       </div>
 
-      {/* Serial connect */}
-      {!serialConnected && (
-        <div className="mb-6 bg-accent-amber/10 border border-accent-amber/30 rounded-xl p-4 flex items-center justify-between">
-          <div>
-            <div className="font-mono text-xs text-accent-amber tracking-widest mb-0.5">SERIAL PORT REQUIRED</div>
-            <div className="text-sm text-surface-3">Connect the ESP device via USB first</div>
+      {/* Port status */}
+      <div className={`mb-6 rounded-xl p-4 flex items-center justify-between border ${
+        detectedPort
+          ? 'bg-accent-green/10 border-accent-green/30'
+          : 'bg-accent-amber/10 border-accent-amber/30'
+      }`}>
+        <div>
+          <div className={`font-mono text-xs tracking-widest mb-0.5 ${detectedPort ? 'text-accent-green' : 'text-accent-amber'}`}>
+            {detectedPort ? 'ESP DEVICE DETECTED' : 'WAITING FOR DEVICE'}
           </div>
-          <button
-            onClick={connectSerial}
-            className="bg-accent-amber text-surface font-semibold text-sm px-4 py-2 rounded-lg hover:bg-accent-amber/90 transition-colors"
-          >
-            Connect Port
-          </button>
+          <div className="text-sm text-surface-3">
+            {detectedPort ? detectedPort : 'Plug in the ESP via USB'}
+          </div>
         </div>
-      )}
+        <div className={`w-2.5 h-2.5 rounded-full ${detectedPort ? 'bg-accent-green animate-pulse' : 'bg-accent-amber opacity-50'}`} />
+      </div>
 
       {/* Sensor grid */}
       <div className="grid grid-cols-1 gap-3 mb-6">
@@ -133,7 +129,7 @@ export default function SensorConfig() {
               {/* Test button */}
               <button
                 onClick={() => testSensor(name)}
-                disabled={testing || !serialConnected}
+                disabled={testing || !detectedPort}
                 className={`
                   px-4 py-2 rounded-lg font-mono text-xs font-medium transition-all duration-200
                   ${address
