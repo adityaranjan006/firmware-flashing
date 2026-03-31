@@ -5,19 +5,35 @@ export default function Terminal({ defaultOpen = true }) {
   const containerRef = useRef(null)
   const termRef = useRef(null)
   const fitAddonRef = useRef(null)
-  const { terminalLines } = useStore()
-  const [open, setOpen] = useState(defaultOpen)
+  const writtenCountRef = useRef(0)
+  const { terminalLines, terminalOpen, setTerminalOpen } = useStore()
+
+  // Sync local open state with store; honour defaultOpen on first mount
+  const [_initDone, setInitDone] = useState(false)
+  useEffect(() => {
+    if (!_initDone) {
+      setTerminalOpen(defaultOpen)
+      setInitDone(true)
+    }
+  }, [])
+  const open = terminalOpen
+  const setOpen = setTerminalOpen
   const [xtermReady, setXtermReady] = useState(false)
 
   useEffect(() => {
     if (!open || !containerRef.current || xtermReady) return
 
-    // Dynamically import xterm to avoid SSR issues
+    // Guard against React StrictMode's double-invocation: if cleanup runs before
+    // the async import resolves, the first Promise must not clobber the second's refs.
+    let cancelled = false
+
     Promise.all([
       import('xterm'),
       import('xterm-addon-fit'),
       import('xterm/css/xterm.css'),
     ]).then(([{ Terminal }, { FitAddon }]) => {
+      if (cancelled) return
+
       const term = new Terminal({
         theme: {
           background: '#0a0c10',
@@ -44,26 +60,35 @@ export default function Terminal({ defaultOpen = true }) {
 
       termRef.current = term
       fitAddonRef.current = fitAddon
-      setXtermReady(true)
 
       term.writeln('\x1b[32m╔══════════════════════════════════════╗\x1b[0m')
       term.writeln('\x1b[32m║   Device Configuration Tool v1.0     ║\x1b[0m')
       term.writeln('\x1b[32m╚══════════════════════════════════════╝\x1b[0m')
       term.writeln('')
+
+      // Replay any lines that arrived before xterm was ready
+      const lines = useStore.getState().terminalLines
+      lines.forEach(line => term.writeln(line))
+      writtenCountRef.current = lines.length
+
+      setXtermReady(true)
     })
 
     return () => {
+      cancelled = true
       termRef.current?.dispose()
       termRef.current = null
+      writtenCountRef.current = 0
       setXtermReady(false)
     }
   }, [open])
 
-  // Stream new lines to terminal
+  // Stream only newly added lines
   useEffect(() => {
     if (!termRef.current || !xtermReady) return
-    const latest = terminalLines[terminalLines.length - 1]
-    if (latest) termRef.current.writeln(latest)
+    const newLines = terminalLines.slice(writtenCountRef.current)
+    newLines.forEach(line => termRef.current.writeln(line))
+    writtenCountRef.current = terminalLines.length
   }, [terminalLines, xtermReady])
 
   // Resize observer
@@ -77,7 +102,7 @@ export default function Terminal({ defaultOpen = true }) {
   }, [open])
 
   return (
-    <div className="border-t border-border bg-surface-1 flex flex-col" style={{ height: open ? '240px' : '38px', transition: 'height 0.3s ease' }}>
+    <div className="border-t border-border bg-surface-1 flex flex-col" style={{ height: open ? '400px' : '38px', transition: 'height 0.3s ease' }}>
       {/* Header bar */}
       <div
         className="flex items-center justify-between px-4 py-2 cursor-pointer select-none shrink-0"

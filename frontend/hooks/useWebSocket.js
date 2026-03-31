@@ -11,7 +11,7 @@ export function useWebSocket() {
   const { setAgentConnected, addTerminalLine } = useStore()
 
   const connect = useCallback(() => {
-    if (wsInstance?.readyState === WebSocket.OPEN) return
+    if (wsInstance?.readyState === WebSocket.OPEN || wsInstance?.readyState === WebSocket.CONNECTING) return
 
     wsInstance = new WebSocket(AGENT_WS_URL)
 

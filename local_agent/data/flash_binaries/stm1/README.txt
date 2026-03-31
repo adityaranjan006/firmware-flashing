@@ -1,0 +1,1 @@
+STM32_Programmer_CLI -c port=SWD sn=37FF71064E57343605661343 -w smartmatteressnew.hex -v -rst

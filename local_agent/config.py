@@ -1,6 +1,7 @@
 import csv
 import os
 import logging
+from datetime import datetime
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -88,6 +89,65 @@ class ConfigManager:
 
         self._write(config)
         log.info('Full config written successfully')
+
+    def write_master_conf(
+        self,
+        device_id: str,
+        serial_no: str,
+        hard_ver: str,
+        sensor_addresses: dict,
+        cert_base_dir: Path,
+        master_conf_path: Path,
+    ):
+        """
+        Generate master_conf.csv for NVS partition generation.
+
+        Columns (DEVVER removed per spec):
+          id, DEVID, MODELNO, SERIALNO, HARDVER, DEVREGFLAG,
+          WIFIAPN, WIFIPASSWD, MFGNAME, MFGDATE,
+          AWSCERT, AWSPRIVATE, AWSROOT,
+          TMPRESLT, TMPRESRT, TMPPELTLT, TMPPELTRT, TMPHTSINK
+        """
+        cert_dir = cert_base_dir / device_id
+
+        fields = [
+            'id', 'DEVID', 'MODELNO', 'SERIALNO', 'HARDVER', 'DEVREGFLAG',
+            'WIFIAPN', 'WIFIPASSWD', 'MFGNAME', 'MFGDATE',
+            'AWSCERT', 'AWSPRIVATE', 'AWSROOT',
+            'TMPRESLT', 'TMPRESRT', 'TMPPELTLT', 'TMPPELTRT', 'TMPHTSINK',
+            'FACTFLAG',
+        ]
+
+        row = {
+            'id':         device_id,
+            'DEVID':      device_id,
+            'MODELNO':    'HX-1000',
+            'SERIALNO':   serial_no,
+            'HARDVER':    hard_ver,
+            'DEVREGFLAG': '0',
+            'WIFIAPN':    'DreamNet',
+            'WIFIPASSWD': 'dreamTeam@7',
+            'MFGNAME':    'dreamspan',
+            'MFGDATE':    datetime.now().strftime('%m/%d/%Y'),
+            'AWSCERT':    str(cert_dir / 'iot_sim.cert.pem'),
+            'AWSPRIVATE': str(cert_dir / 'iot_sim.private.key'),
+            'AWSROOT':    str(cert_dir / 'rootCA.crt'),
+            'TMPRESLT':   sensor_addresses.get('RL', ''),
+            'TMPRESRT':   sensor_addresses.get('RR', ''),
+            'TMPPELTLT':  sensor_addresses.get('PL', ''),
+            'TMPPELTRT':  sensor_addresses.get('PR', ''),
+            'TMPHTSINK':  sensor_addresses.get('HS', ''),
+            'FACTFLAG':   '1',
+        }
+
+        master_conf_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(master_conf_path, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fields)
+            writer.writeheader()
+            writer.writerow(row)
+
+        log.info(f'master_conf.csv written: {master_conf_path} (device={device_id})')
 
     def get_value(self, key: str):
         return self._read().get(key)

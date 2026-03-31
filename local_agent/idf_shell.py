@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import re as _re
 
 log = logging.getLogger(__name__)
 
@@ -73,17 +74,26 @@ class IDFShell:
         await self._proc.stdin.drain()
 
     async def _drain_until(self, sentinel: str, capture_exit: bool = False):
-        """Async generator: yield lines until sentinel is found."""
+        """Async generator: yield lines until sentinel is found.
+        Handles \\r, \\n, and \\r\\n so esptool progress output streams correctly."""
+        buf = ''
         while True:
-            raw = await self._proc.stdout.readline()
-            if not raw:
+            chunk = await self._proc.stdout.read(256)
+            if not chunk:
                 break
-            line = raw.decode().rstrip()
-            if sentinel in line:
-                if capture_exit:
-                    yield line
-                return
-            yield line
+            buf += chunk.decode('utf-8', errors='replace')
+            # Split on \r\n, \r, or \n — keeps partial last segment in buf
+            parts = _re.split(r'\r\n|\r|\n', buf)
+            buf = parts.pop()          # last segment is incomplete, hold for next read
+            for line in parts:
+                line = line.rstrip('\r\n')
+                if not line:
+                    continue
+                if sentinel in line:
+                    if capture_exit:
+                        yield line
+                    return
+                yield line
 
     def is_alive(self) -> bool:
         return self._proc is not None and self._proc.returncode is None

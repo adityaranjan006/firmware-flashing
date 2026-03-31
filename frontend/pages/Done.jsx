@@ -1,22 +1,33 @@
 import { useStore } from '../store'
 
+const CONFIG_FIELDS = [
+  { key: 'DEVID',     label: 'Device ID',      getValue: s => s.deviceId },
+  { key: 'SERIALNO',  label: 'Serial No',       getValue: s => s.serialNo },
+  { key: 'WIFIAPN',   label: 'WiFi SSID',       getValue: () => 'DreamNet' },
+  { key: 'WIFIPASSWD',label: 'WiFi Password',   getValue: () => 'dreamTeam@7' },
+  { key: 'MFGNAME',   label: 'Manufacturer',    getValue: () => 'dreamspan' },
+  { key: 'MFGDATE',   label: 'Manufacture Date',getValue: s => s.mfgDate },
+]
+
 export default function Done() {
-  const { deviceId, sensorResults, setStep, setAuth } = useStore()
-  const passCount = Object.values(sensorResults).filter(r => r === 'pass').length
-  const totalCount = Object.values(sensorResults).length
+  const store = useStore()
+  const { setStep, setAuth } = store
 
   const handleNewDevice = () => {
-    // Reset all state except auth
     useStore.setState({
-      currentStep: 'sensors',
-      sensorAddresses: { RL: null, RR: null, PL: null, PR: null, HS: null },
-      deviceId: null,
-      certPath: null,
-      flashStatus: { esp: 'idle', stm1: 'idle', stm2: 'idle' },
-      terminalLines: [],
-      sensorResults: {},
+      currentStep:    'device_select',
+      selectedDevice: null,
+      portMapping:    { esp: null, stm: null },
+      sensorAddresses:{ RL: null, RR: null, PL: null, PR: null, HS: null },
+      deviceId:       null,
+      certPath:       null,
+      serialNo:       '',
+      hardVer:        '',
+      mfgDate:        '',
+      flashStatus:    { esp: 'idle', stm1: 'idle', stm2: 'idle' },
+      terminalLines:  [],
+      sensorResults:  {},
     })
-    setStep('sensors')
   }
 
   return (
@@ -29,16 +40,20 @@ export default function Done() {
       <div className="font-display text-4xl text-white tracking-wider mb-2 text-center">DEVICE READY</div>
       <div className="font-mono text-xs text-accent-green tracking-widest mb-8">CONFIGURATION COMPLETE</div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 w-full max-w-sm mb-8">
-        <div className="bg-surface-2 border border-border rounded-xl p-4 text-center">
-          <div className="font-mono text-2xl text-accent-green font-bold">{passCount}/{totalCount}</div>
-          <div className="font-mono text-xs text-surface-3 mt-1 tracking-widest">SENSORS PASSED</div>
-        </div>
-        <div className="bg-surface-2 border border-border rounded-xl p-4 text-center">
-          <div className="font-mono text-lg text-white font-bold truncate">{deviceId || '—'}</div>
-          <div className="font-mono text-xs text-surface-3 mt-1 tracking-widest">DEVICE ID</div>
-        </div>
+      {/* Config summary */}
+      <div className="w-full max-w-sm mb-8 bg-surface-2 border border-border rounded-xl overflow-hidden">
+        {CONFIG_FIELDS.map(({ key, label, getValue }, i) => {
+          const value = getValue(store) || '—'
+          return (
+            <div
+              key={key}
+              className={`flex items-center justify-between px-4 py-3 ${i < CONFIG_FIELDS.length - 1 ? 'border-b border-border' : ''}`}
+            >
+              <span className="font-mono text-xs text-surface-3 tracking-widest uppercase">{label}</span>
+              <span className="font-mono text-xs text-white font-semibold truncate ml-4 max-w-[55%] text-right">{value}</span>
+            </div>
+          )
+        })}
       </div>
 
       {/* Actions */}

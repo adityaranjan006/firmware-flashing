@@ -21,6 +21,11 @@ export function useApi() {
     return res.data
   }
 
+  const fetchDevices = async () => {
+    const res = await api.get('/devices')
+    return res.data  // { success, count, devices: [...] }
+  }
+
   const fetchCertificate = async (deviceId) => {
     const res = await api.get(`/certificates/${deviceId}`)
     return res.data  // { cert_path, cert_data }
@@ -48,6 +53,7 @@ export function useApi() {
 
   return {
     login,
+    fetchDevices,
     fetchCertificate,
     fetchConfigDefaults,
     fetchFirmware,

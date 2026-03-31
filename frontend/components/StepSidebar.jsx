@@ -1,12 +1,13 @@
 import { useStore } from '../store'
 
 const STEPS = [
-  { id: 'login',     label: 'Login',           icon: '01' },
-  { id: 'sensors',   label: 'Sensor Config',   icon: '02' },
-  { id: 'certconfig',label: 'Cert & Config',   icon: '03' },
-  { id: 'flashing',  label: 'Flash Firmware',  icon: '04' },
-  { id: 'testing',   label: 'Sensor Testing',  icon: '05' },
-  { id: 'done',      label: 'Complete',        icon: '06' },
+  { id: 'device_select',    label: 'Select Device',    icon: '01' },
+  { id: 'programmer_setup', label: 'Programmer Setup', icon: '02' },
+  { id: 'firmware_flash',   label: 'Flash Firmware',   icon: '03' },
+  { id: 'sensors',          label: 'Sensor Config',    icon: '04' },
+  { id: 'certconfig',       label: 'Cert & Config',    icon: '05' },
+  { id: 'flashing',         label: 'Re-Flash',         icon: '06' },
+  { id: 'done',             label: 'Complete',         icon: '07' },
 ]
 
 const STEP_ORDER = STEPS.map(s => s.id)
@@ -20,7 +21,12 @@ function getStepState(stepId, currentStep) {
 }
 
 export default function StepSidebar() {
-  const { currentStep, agentConnected } = useStore()
+  const { currentStep, agentConnected, connectedPort, user, logout, setStep } = useStore()
+
+  const handleLogout = () => {
+    logout()
+    setStep('login')
+  }
 
   return (
     <aside className="w-56 bg-surface-1 border-r border-border flex flex-col shrink-0">
@@ -66,15 +72,34 @@ export default function StepSidebar() {
         })}
       </nav>
 
-      {/* Agent status */}
-      <div className="px-4 py-3 border-t border-border">
+      {/* Agent + Port status */}
+      <div className="px-4 py-3 border-t border-border space-y-2">
         <div className="flex items-center gap-2">
           <span className={`w-2 h-2 rounded-full shrink-0 ${agentConnected ? 'bg-accent-green status-dot-active' : 'bg-accent-red'}`} />
           <span className="font-mono text-xs text-surface-3">
             {agentConnected ? 'Agent Online' : 'Agent Offline'}
           </span>
         </div>
-        <div className="font-mono text-[10px] text-surface-3 mt-0.5 pl-4">localhost:8765</div>
+        <div className="flex items-center gap-2">
+          <span className={`w-2 h-2 rounded-full shrink-0 ${connectedPort ? 'bg-accent-green status-dot-active' : 'bg-surface-3'}`} />
+          <span className="font-mono text-xs text-surface-3 truncate">
+            {connectedPort ?? 'No device'}
+          </span>
+        </div>
+      </div>
+
+      {/* User + Logout */}
+      <div className="px-4 py-3 border-t border-border">
+        {user && (
+          <div className="font-mono text-[10px] text-surface-3 mb-2 truncate">{user.username}</div>
+        )}
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-2 border border-border hover:border-accent-red/40 hover:text-accent-red text-surface-3 transition-all duration-200"
+        >
+          <span className="font-mono text-xs">⎋</span>
+          <span className="font-mono text-xs tracking-widest">LOGOUT</span>
+        </button>
       </div>
     </aside>
   )

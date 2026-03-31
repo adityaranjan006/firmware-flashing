@@ -16,7 +16,7 @@ export default function Login() {
     setError('')
     try {
       await login(username, password)
-      setStep('sensors')
+      setStep('device_select')
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid credentials')
     } finally {

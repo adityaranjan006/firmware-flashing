@@ -1,0 +1,1 @@
+python -m esptool --chip esp32s3 -b 460800 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 8MB --flash_freq 80m 0x0 ./data/flash_binaries/esp/bootloader.bin 0x8000 ./data/flash_binaries/esp/partition-table.bin 0x19000 ./data/flash_binaries/esp/ota_data_initial.bin 0x20000 ./data/flash_binaries/esp/Esp_STM_Uart_Communication.bin

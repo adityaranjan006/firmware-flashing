@@ -1,0 +1,7 @@
+local_agent/__pycache__/*
+local_agent/venv/
+local_agent/data/device_certificates/*
+local_agent/data/flash_binaries/cert_gen/bin/
+local_agent/data/flash_binaries/cert_gen/csv/
+local_agent/data/config.csv
+local_agent/data/flash_binaries/esp/Esp_STM_Uart_Communication.bin
